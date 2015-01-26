@@ -1,0 +1,53 @@
+extends layout
+
+// basic data fields using Jade's mixin features
+// bind to those data fields for dynamic updates
+
+block styles
+	//link(rel='stylesheet',href='/stylesheets/dashboard.css')
+
+block scripts
+	//bind to the data fields defined in mixin
+	//script(src='/javascripts/dashboard.js')
+	script(src='/socket.io/socket.io.js')
+	script(src='http://code.highcharts.com/highcharts.js')
+	script(src='http://code.highcharts.com/modules/exporting.js')
+	script(src='/javascripts/client.socket.io.js')
+
+block content
+	div(class="container")
+		div.page-header: h1 Twitter Love/Hate Sentiment Analyzer
+		div.row
+			div.col-lg-6.center
+				center 
+					label(for="entity1") Entity 1:
+						input#entity1(type="text", name="Entity 1")
+						
+			div.col-lg-6
+				center
+					label(for="entity2") Entity 2:
+						input#entity2(type="text", name="Entity 2")
+		div.row
+			center
+				button#togglestream.btn.btn-primary.btn-lg Show Stream
+		div#piechart(class="row")
+		div(class="row")
+		div#tweettable(class="row", style="display:none")
+			center
+				h2 Total Tweets: <span id="totalTweets">0</span>
+			div(class="table-responsive")
+				table#lovehatetable(class="table table-bordered table-striped")
+					thead
+						tr
+							th(style="text-align:center", class="col-md-6")
+								h4#entity1_title (<span id="loveTweets">0</span>) - <span id="lovePercent"></span>
+							th(style="text-align:center", class="col-md-6") 
+								h4#entity2_title (<span id="hateTweets">0</span>) - <span id="hatePercent"></span>
+					tbody#lovehatebody(style="overflow:auto")
+						tr
+							td.col-md-6
+								ul#lovelist.list-group
+							td.col-md-6
+								ul#hatelist.list-group
+					
+						
