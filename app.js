@@ -4,6 +4,7 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
+var request = require('request');
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
@@ -35,6 +36,7 @@ var tw = new twitter({
 	hateTweets = 0,
 	totalTweets = 0,
 	streamTo = {},
+	endpoint = "http://www.sentiment140.com/api/bulkClassifyJson?appid=twitter@nithanth.com",
 	tweetType = 0;
 
 sio.sockets.on('connection', function(socket) {
@@ -80,48 +82,61 @@ sio.sockets.on('connection', function(socket) {
 			}, function(s) {
 				stream = s
 				stream.on("data", function(data) {
-					console.log(data.text);
-					var e1_regex = new RegExp(entities.entity_1, 'i');
-					var e2_regex = new RegExp(entities.entity_2, 'i');
-					if(users.length > 0) {
-						if(data.text.match(e1_regex) || data.text.match(e2_regex)) {
-							totalTweets += 1;
-							if(data.text.match(e1_regex)) {
-								loveTweets += 1;
-								tweetType = 1;
-							}
-							if(data.text.match(e2_regex)) {
-								hateTweets += 1;
-								tweetType = 2;
-							}
-							if(data.text.match(e1_regex) && data.text.match(e2_regex)) {
-								totalTweets += 1;
-								tweetType = 3;
-							}
-							//socket.broadcast.emit("new tweet", {tweet_type: tweetType, screen_name: data.user.screen_name, text: data.text, totalTweets: totalTweets, loveTweets: loveTweets, hateTweets: hateTweets});
-							//if(streamToUser)
-								//socket.emit("new tweet", {tweet_type: tweetType, screen_name: data.user.screen_name, text: data.text, totalTweets: totalTweets, loveTweets: loveTweets, hateTweets: hateTweets});
-							var i;
-							for(i = 0; i < users.length; i ++) {
-								if(streamTo[users[i]]) {
-									sio.to(users[i]).emit("new tweet", {tweet_type: tweetType, screen_name: data.user.screen_name, text: data.text, profile_image_url: data.user.profile_image_url, totalTweets: totalTweets, loveTweets: loveTweets, hateTweets: hateTweets});
-									//sio.to(users[i]).emit("new tweet", data);
+					var polarity;
+//					console.log(data.text);
+					request.post(
+						"http://www.sentiment140.com/api/bulkClassifyJson?appid=twitter@nithanth.com",
+						{ json : { "language": "auto",
+						  "data": [{"text": data.text}] } },
+						function(error, response, body) {
+							if (!error && response.statusCode == 200) {
+								polarity = body.data[0].polarity;
+								
+								var e1_regex = new RegExp(entities.entity_1.replace(/,/g, '|'), 'i');
+								var e2_regex = new RegExp(entities.entity_2.replace(/,/g, '|'), 'i');
+
+								if(users.length > 0) {
+									totalTweets += 1;
+									if(data.text.match(e1_regex)) {
+										loveTweets += 1;
+										tweetType = 1;
+									}
+									if(data.text.match(e2_regex)) {
+										hateTweets += 1;
+										tweetType = 2;
+									}
+									if(data.text.match(e1_regex) && data.text.match(e2_regex)) {
+										totalTweets += 1;
+										tweetType = 3;
+									}
+										//socket.broadcast.emit("new tweet", {tweet_type: tweetType, screen_name: data.user.screen_name, text: data.text, totalTweets: totalTweets, loveTweets: loveTweets, hateTweets: hateTweets});
+										//if(streamToUser)
+											//socket.emit("new tweet", {tweet_type: tweetType, screen_name: data.user.screen_name, text: data.text, totalTweets: totalTweets, loveTweets: loveTweets, hateTweets: hateTweets});
+									var i;
+									for(i = 0; i < users.length; i ++) {
+										if(streamTo[users[i]]) {
+											sio.to(users[i]).emit("new tweet", {tweet_type: tweetType, tweet_polarity: polarity, screen_name: data.user.screen_name, text: data.text, profile_image_url: data.user.profile_image_url, totalTweets: totalTweets, loveTweets: loveTweets, hateTweets: hateTweets});
+											//sio.to(users[i]).emit("new tweet", data);
+										}
+									}
+									if(totalTweets == 10000) {
+										console.log("Destroying stream");
+										stream.destroy();
+										stream = null
+									}
+								}
+								else {
+									//close stream if no user is connected
+									console.log("Destroying stream");
+									if(stream != null)
+										stream.destroy();
+									stream = null;
 								}
 							}
 						}
-						if(totalTweets == 10000) {
-							console.log("Destroying stream");
-							stream.destroy();
-							stream = null
-						}
-					}
-					else {
-						//close stream if no user is connected
-						console.log("Destroying stream");
-						if(stream != null)
-							stream.destroy();
-						stream = null;
-					}
+					);
+
+					//here
 				});
 			});
 		}
